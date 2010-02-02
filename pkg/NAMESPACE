@@ -1,0 +1,2 @@
+export(extrema, gapsts, IF, IT,TidalCharacteristics,print.Tides,plot.Tides)
+
