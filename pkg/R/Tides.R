@@ -5,7 +5,7 @@ TidalCharacteristics <- function (	h,  		#(Water level) time series. data frame 
 					filtconst = 50,	#Filtering constant for smoothing the time series
 					dtMax = 15,	#maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps
 					unit = "mins",  # unit of dtMax, Tavg
-					Tavg = 12.4*60) #Average period of time 
+					Tavg = 12.4*60) #Average period of tidal cycle 
 {
 if (any(!is.element("time",names(h)))) stop("h must be a data frame with columns time (POSIXt) and h (numeric)")
 if (class(h$time[1])[1]!="POSIXt") stop("h must be a data frame with columns time (POSIXt) and h (numeric)")
@@ -18,7 +18,7 @@ tij <- output$h
 
 ###
 #determine gaps in 'continuous' data
-gaps <- gapsts(tij,dtMax=dtMax)
+gaps <- gapsts(tij$time,dtMax=dtMax)
 if (!is.null(gaps)) 	{gaps$N <- tij$N[match(gaps$t1,tij$time)]	#N counts the tidal cycles
 			tij$n <- findInterval(tij$time,gaps$t2)+1	#n counts the continuous series of cycles.	
 } else tij$n <- 1
@@ -38,9 +38,9 @@ if (!is.null(gaps)) DTs <- subset(DTs,!is.element(N,gaps$N)&!is.element(N,gaps$N
 
 ###
 #Calculate total inundation frequence
-if (is.null(gaps)) gapstime <- 0 else gapstime <- sum(unclass(subset(gaps,t2<end)$dt))
-Ncycles <- floor(unclass(difftime(min(max(tij$time,na.rm=T),end),min(tij$time,na.rm=T),unit="mins") - gapstime)/(Tavg))[1]
-IF <- IF(subset(HL,HL=="H"&time<end),subset(HL,HL=="H"&time<end)$h0,N=Ncycles)
+if (is.null(gaps)) gapstime <- 0 else gapstime <- sum(unclass(gaps$dt))
+Ncycles <- floor(unclass(difftime(max(tij$time,na.rm=T),min(tij$time,na.rm=T),unit="mins") - gapstime)/(Tavg))[1]
+IF <- IF(subset(HL,HL=="H"),subset(HL,HL=="H")$h0,N=Ncycles)
 
 
 TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0,Ncycles=Ncycles)
@@ -49,17 +49,17 @@ return(TideChars)
 }
 
 print.Tides <- function(x,...){
-  if (is.null(x$gaps)) cat("There were no gaps in the time series","\n") else cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")
-  cat("Time span:			", x$Ncycles, "average (tidal) cycles","\n")
   cat("Inundation frequency:		", x$IF, " (",x$IF*x$Ncycles/100,"inundations during time span)","\n")
   cat("Average inundation height:	", mean(x$HL$h-x$HL$h0),"\n")
   cat("Average inundation time:	", mean(x$ITs$dt),x$unit,"\n")
   cat("Average dry time:		", mean(x$DTs$dt),x$unit,"\n")
+  cat("Time span:			", x$Ncycles, "average (tidal) cycles","\n")
+if (is.null(x$gaps)) cat("There were no gaps in the time series","\n") else cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")
 
 }
 
 plot.Tides <- function(x,...){
-  plot(x$h$time,x$h$h,type="l",ylab="waterlevel")
+  plot(x$h$time,x$h$h,type="l",ylab="waterlevel",...)
   lines(x$h$time,x$h$h0)
   points(x$HL$time,x$HL$h,col="red",pch=20)
   points(x$HL$time[x$HL$HL=="L"],x$HL$h[x$HL$HL=="L"],col="blue",pch=20)
@@ -131,17 +131,18 @@ return(list(HL = HL[c("time","h","HL","h0")], #Data frame with extrema
               )
 }
 
-gapsts <- function(ts,            # data-frame with time column
-                    dtMax,        # maximum accepted time interval in a continuous series
-                    unit = "mins"  # unit of dtMax
+gapsts <- function(ts,            	# array of times, consisting of different continuous subseries seperated by large gaps
+                    dtMax,        	# maximum time interval in a continuous series
+                    unit = "mins"  	# unit of dtMax
                     )
 {
+if (!inherits(ts,"POSIXt")) stop("ts must be of class POSIXt")
 #Select gaps > dtMax in a timeseries ts
-timediffs <- difftime(ts$time[1:(length(ts$time)-1)], ts$time[2:(length(ts$time))],units=unit)
+timediffs <- difftime(ts[1:(length(ts)-1)], ts[2:(length(ts))],units=unit)
 if (!any(timediffs < - dtMax)) return(NULL)
-gaps <- ts$time[c(timediffs < -dtMax,F)]
+gaps <- ts[c(timediffs < -dtMax,F)]
 gaps <- data.frame(t1 = gaps)
-gaps$t2 <- ts$time[match(gaps$t1,ts$time)  + 1]
+gaps$t2 <- ts[match(gaps$t1,ts)  + 1]
 gaps$n <- 1:dim(gaps)[1]
 gaps$dt <- difftime(gaps$t2,gaps$t1,units=unit)
 return(gaps) #Data frame with the initial time, end time and time difference (unit = unit) of each interval > dtMax
@@ -186,8 +187,8 @@ if (dry$time[length(dry$time)] < h$time[length(h$time)]) {
 			dry$time[length(dry$time)] <- dry$time[length(dry$time)] + unclass(difftime(h$time[2],h$time[1],units="secs"))
 			}
 
-IT <- gapsts(dry,dtMax,unit=unit)
-DT <- gapsts(wet,dtMax,unit=unit)
+IT <- gapsts(dry$time,dtMax,unit=unit)
+DT <- gapsts(wet$time,dtMax,unit=unit)
 
 }
 }
