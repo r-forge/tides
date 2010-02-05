@@ -43,7 +43,7 @@ Ncycles <- floor(unclass(difftime(max(tij$time,na.rm=T),min(tij$time,na.rm=T),un
 IF <- IF(subset(HL,HL=="H"),subset(HL,HL=="H")$h0,N=Ncycles)
 
 
-TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0,Ncycles=Ncycles)
+TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0,Ncycles=Ncycles,Tunit=unit)
 class(TideChars) <- "Tides" 
 return(TideChars)
 }
@@ -51,8 +51,8 @@ return(TideChars)
 print.Tides <- function(x,...){
   cat("Inundation frequency:		", x$IF, " (",x$IF*x$Ncycles/100,"inundations during time span)","\n")
   cat("Average inundation height:	", mean(x$HL$h-x$HL$h0),"\n")
-  cat("Average inundation time:	", mean(x$ITs$dt),x$unit,"\n")
-  cat("Average dry time:		", mean(x$DTs$dt),x$unit,"\n")
+  cat("Average inundation time:	", mean(x$ITs$dt),x$Tunit,"\n")
+  cat("Average dry time:		", mean(x$DTs$dt),x$Tunit,"\n")
   cat("Time span:			", x$Ncycles, "average (tidal) cycles","\n")
 if (is.null(x$gaps)) cat("There were no gaps in the time series","\n") else cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")
 
@@ -78,11 +78,12 @@ h$h0 <- h0
 
 #set all levels < h0 equal to h0
 #take a margin (default is 0.3 cm), to cope with small fluctuations of water level
+h$ho <- h$h 	#first save original waterlevels
 h$h[floor(h$h)<=h$h0+h0marg] <- h$h0[floor(h$h)<=h$h0+h0marg]
 
 #filter tij data, running average of filtconst (default = 3) succesive datapoints,to
 #remove small fluctuations
-h$ho <- h$h
+
 h$hfilt <- filter(h$h,rep(1/filtconst,filtconst))
 
 #remove missing values due to filtering
@@ -126,6 +127,8 @@ HL <- h[h$HLval != 0,]
 #select only different extrema, take first
 HL$eq <- c(F,HL$HLval[1:(length(HL$time)-1)] == HL$HLval[2:length(HL$time)])
 HL <- HL[!HL$eq,]
+
+h$h <- h$ho
 return(list(HL = HL[c("time","h","HL","h0")], #Data frame with extrema
               h = h[c("time","h","h0","HL","N")]) #original water level data frame with additional attributes
               )

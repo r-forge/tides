@@ -6,7 +6,7 @@
 TC <- TidalCharacteristics(h,...)}
 \arguments{
   \item{h }{Water level time series. data frame with time and h column}
-  \item{h0 }{Reference level, either single valued vector with dimension corresponding to h}
+  \item{h0 }{Reference level, either single valued or vector with dimension corresponding to h}
   \item{h0marg }{Margin on reference level, to cope with small fluctuations in the Water level time series}
   \item{T2 }{'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h}
   \item{filtconst }{Filtering constant for smoothing the time series}
@@ -31,7 +31,7 @@ TC <- TidalCharacteristics(h,...)}
 \author{Tom Cox <tom.cox@ua.ac.be>}
 \keyword{utilities}
 \examples{
-TC <- TidalCharacteristics(waterlevels,h0=291)
+TC <- TidalCharacteristics(waterlevels)
 TC
 plot(TC)
 }
