@@ -1,17 +1,17 @@
 \name{TidalCharacteristics}
 \alias{TidalCharacteristics}
 \title{Calculate tidal characteristics}
-\description{Calculates the characteristics of observed tidal water levels. Wrapper of the functions \code{\link{extrema}}, \code{\link{IT}} and \code{\link{IF}}}
-\usage{TidalCharacteristics(h,h0 = h$h0,h0marg = 0.3, T2 = 5*60*60,filtconst = 50, dtMax = 15,unit = "mins", Tavg = 12.4*60 ) 
+\description{Calculates the characteristics of observed tidal water levels. Wrapper of the functions \code{\link{extrema}}, \code{\link{IT}} and \code{\link{IF}}}. Also works on time series with gaps.
+\usage{TidalCharacteristics(h,h0 = h$h0,T2 = 5*60*60, hoffset = 3, filtconst = 1, dtMax = 15,unit = "mins", Tavg = 12.4*60 ) 
 TC <- TidalCharacteristics(h,...)}
 \arguments{
   \item{h }{Water level time series. data frame with time and h column}
-  \item{h0 }{Reference level, either single valued or vector with dimension corresponding to h}
-  \item{h0marg }{Margin on reference level, to cope with small fluctuations in the Water level time series}
+  \item{h0}{Reference level, either single valued or vector with dimension corresponding to h}
   \item{T2 }{'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h}
+  \item{hoffset}{Offset level, to prevent spurious maxima generation due to small fluctuations}
   \item{filtconst }{Filtering constant for smoothing the time series}
-  \item{dtMax}{maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps}
-  \item{unit}{unit of dtMax, Tavg}
+  \item{dtMax}{Maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps}
+  \item{unit}{Unit of dtMax, Tavg}
   \item{Tavg}{Average period of time series}
 }
 \value{

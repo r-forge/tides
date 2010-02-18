@@ -1,8 +1,8 @@
 TidalCharacteristics <- function (	h,  		#(Water level) time series. data frame with time and h column
 					h0 = h$h0, 	#Reference level, either single valued or vector with dimension corresponding to h
-					h0marg = 0.3,   #[Maybe obsolete]Margin on reference level, to cope with small fluctuations in the Water level time series
 					T2 = 5*60*60, 	#'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h
-					filtconst = 50,	#Filtering constant for smoothing the time series
+					hoffset = 3,   #[Maybe obsolete]Margin on reference level, to cope with small fluctuations in the Water level time series
+					filtconst = 1,	#Filtering constant for smoothing the time series
 					dtMax = 15,	#maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps
 					unit = "mins",  # unit of dtMax, Tavg
 					Tavg = 12.4*60) #Average period of tidal cycle 
@@ -12,7 +12,7 @@ if (class(h$time[1])[1]!="POSIXt") stop("h must be a data frame with columns tim
 if (is.null(h0)) stop("provide reference level h0")
 
 #Calculate high and low water levels (extrema) in water level time series
-output <- extrema(h=h,h0=h0,T2 = T2,filtconst=filtconst)
+output <- extrema(h=h,h0=h0,T2 = T2,filtconst=filtconst, hoffset = hoffset)
 HL <- output$HL
 tij <- output$h
 
@@ -27,12 +27,12 @@ if (!is.null(gaps)) 	{gaps$N <- tij$N[match(gaps$t1,tij$time)]	#N counts the tid
 #Calculate inundation times and dry times
 ITDT <- IT(tij[c("time","h")],h0=tij$h0,dtMax=dtMax)
 ITs <- ITDT$IT
-ITs$N <- tij$N[match(ITs$t1,tij$time)]
+if (!is.null(ITs)) ITs$N <- tij$N[match(ITs$t1,tij$time)]
 #When gaps are present in the time series, remove all broken cycles +- 1 cycle number to be sure, i.e. in which a gap of data exists
 if (!is.null(gaps)) ITs <- subset(ITs,!is.element(N,c(gaps$N-1,gaps$N,gaps$N+1)))
   
 DTs <- ITDT$DT
-DTs$N <- tij$N[match(DTs$t1,tij$time)]
+if (!is.null(DTs)) DTs$N <- tij$N[match(DTs$t1,tij$time)]
 #When gaps are present in the time series, remove all broken cycles +- 1 cycle number to be sure
 if (!is.null(gaps)) DTs <- subset(DTs,!is.element(N,gaps$N)&!is.element(N,gaps$N+1)&!is.element(N,gaps$N - 1))
 
@@ -49,10 +49,10 @@ return(TideChars)
 }
 
 print.Tides <- function(x,...){
-  cat("Inundation frequency:		", x$IF, " (",x$IF*x$Ncycles/100,"inundations during time span)","\n")
-  cat("Average inundation height:	", mean(x$HL$h-x$HL$h0),"\n")
-  cat("Average inundation time:	", mean(x$ITs$dt),x$Tunit,"\n")
-  cat("Average dry time:		", mean(x$DTs$dt),x$Tunit,"\n")
+  if (is.null(x$DTs$dt)) cat("Inundation frequency: 100% \n") else cat("Inundation frequency:		", x$IF, " (",x$IF*x$Ncycles/100,"inundations during time span)","\n")
+  if (is.null(x$DTs$dt)) cat ("WARNING not reliable (IF = 100%). Average inundation height: ", mean(x$HL$h-x$HL$h0),"\n") else cat("Average inundation height:	", mean(x$HL$h-x$HL$h0),"\n")
+  if (is.null(x$ITs$dt)) cat ("Average inundation time: 	Site never inundated \n") else cat("Inundation time. Average:", mean(x$ITs$dt),x$Tunit,", Maximum: ",max(x$ITs$dt),x$Tunit,"\n")
+  if (is.null(x$DTs$dt)) cat ("Average dry time:	Site never falls dry \n") else  cat("Dry time. Average:", mean(x$DTs$dt),x$Tunit,", Maximum",max(x$DTs$dt),x$Tunit,"\n")
   cat("Time span:			", x$Ncycles, "average (tidal) cycles","\n")
 if (is.null(x$gaps)) cat("There were no gaps in the time series","\n") else cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")
 
@@ -68,20 +68,19 @@ plot.Tides <- function(x,...){
 
 extrema <- function(h,            #(Water level) time series. data frame with time and h column
                     h0,           #Reference level, either single valued or vector with dimension corresponding to h
-                    h0marg = 0.3, #Margin on reference level, to cope with small fluctuations in the (water level) time series
                     T2 = 5*60*60, #'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h
-                    filtconst = 50 #Filtering constant for smoothing the time series
+                    hoffset = 3, #Offset level, to prevent spurious maxima generation due to small fluctuations
+                    filtconst = 1 #Filtering constant for smoothing the time series
 )
 {
 
 h$h0 <- h0
 
 #set all levels < h0 equal to h0
-#take a margin (default is 0.3 cm), to cope with small fluctuations of water level
 h$ho <- h$h 	#first save original waterlevels
-h$h[floor(h$h)<=h$h0+h0marg] <- h$h0[floor(h$h)<=h$h0+h0marg]
+h$h[(h$h)<=h$h0] <- h$h0[(h$h)<=h$h0]
 
-#filter tij data, running average of filtconst (default = 3) succesive datapoints,to
+#filter tij data, running average of filtconst (default = 1, no filtering) succesive datapoints,to
 #remove small fluctuations
 
 h$hfilt <- filter(h$h,rep(1/filtconst,filtconst))
@@ -89,16 +88,12 @@ h$hfilt <- filter(h$h,rep(1/filtconst,filtconst))
 #remove missing values due to filtering
 h <- h[!is.na(h$hfilt),]
 
-#Add missing values due to filtering
-#h$h[1:floor(filtconst/2)] <- h$ho[1:floor(filtconst/2)]
-#h$h[(length(h$h)-floor(filtconst/2)+1):length(h$h)] <- h$ho[(length(h$h)-floor(filtconst/2)+1):length(h$h)]
-
 #Useful matrix to swith between [H,L] or [T,F] representation of high and low phase of ts
 HLTF <- data.frame(HL = c("H","L"), TF = c(TRUE,FALSE))
 
 #Here the core thing happens
 #If h[t+T2] < h[t] & h[t-T2] < h[t] then high tide, else low tide
-h$TF <- (h$hfilt>approx(x=h$time,y=h$hfilt,xout= pmin(h$time+T2,h$time[length(h$time)]))$y)+h0marg&(h$hfilt>approx(x=h$time,y=h$hfilt,xout=pmax(h$time[1],h$time-T2))$y+h0marg)
+h$TF <- (h$hfilt>approx(x=h$time,y=h$hfilt,xout= pmin(h$time+T2,h$time[length(h$time)]))$y)+hoffset&(h$hfilt>approx(x=h$time,y=h$hfilt,xout=pmax(h$time[1],h$time-T2))$y+hoffset)
 h$HL <- HLTF$HL[match(h$TF,HLTF$TF)]
 
 #Give every high and low tide phase a number
@@ -107,26 +102,29 @@ h$N[2:(length(h$time))] <- 1*(h$HL[1:(length(h$time)-1)] != h$HL[2:(length(h$tim
 h$N[1] <- 1
 h$N <- cumsum(h$N)
 
-#find all maxima within each high and low phase
-max <- as.data.frame(tapply(h$h,h$N,max))
-names(max) <- "max"
-min <- as.data.frame(tapply(h$h,h$N,min))
-names(min) <- "min"
 
-h$max <- max$max[h$N]
-h$min <- min$min[h$N]
+#Now, find all maxima within each high and low phase
+#
+#Remark: a very short and clean way of coding would be like this
+#
+#minmax <- by(h,h$N,function(x,...){
+#			switch(x$HL[1], 
+#				L = x[which.min(x$h),], 
+#				H = x[which.max(x$h),])},
+#			simplify=T)
+#HL <- do.call(rbind,minmax)
+#
+#However, this is about twice as slow (due to do.call() and by()) as the following, dirtier code
 
-#Tom check this
-#This way, sometimes two extrema (with the same water level as the extremum) are counted
-h$HLval <- 0
-h$HLval <- (h$max==h$h & h$HL=="H")*h$h + (h$min==h$h & h$HL=="L")*h$h
+max <- tapply(h$h,h$N,max)
+min <- tapply(h$h,h$N,min)
+h$max <- max[h$N]
+h$min <- min[h$N]
+h$HLval <- 0		
+h$HLval <- (h$max==h$h & h$HL=="H")*h$h + (h$min==h$h & h$HL=="L")*h$h   #Pick minimum in low water phase and maximum in high water phase
+HL <- h[h$HLval != 0,] 	#Select only High and Low waters
+HL <- HL[match(unique(HL$N),HL$N),]	#cleanup: take first occurance in cases where maximum or minimum is reached multiple times during a single water phase.
 
-#select only High and Low waters
-HL <- h[h$HLval != 0,]
-
-#select only different extrema, take first
-HL$eq <- c(F,HL$HLval[1:(length(HL$time)-1)] == HL$HLval[2:length(HL$time)])
-HL <- HL[!HL$eq,]
 
 h$h <- h$ho
 return(list(HL = HL[c("time","h","HL","h0")], #Data frame with extrema
