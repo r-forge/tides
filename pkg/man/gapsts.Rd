@@ -4,9 +4,9 @@
 \description{Determine gaps (time intervals bigger than a certain maximum dtMax) in a time series}
 \usage{gapsts(ts, dtMax,unit = "mins")}
 \arguments{
-  \item{ts }{array of times, consisting of different continuous subseries seperated by large gaps}
-  \item{dtMax }{maximum time interval in a continuous series}
-  \item{unit }{unit of dtMax}
+  \item{ts }{Array of times, not necessarily of class \code{\link{POSIXt}}. Time sequences with differences of subsequent valuse < dtMax are considered a continuous series. Time differences > dtMax are considered gaps between two consecutive series.}
+  \item{dtMax }{Maximum time interval that is not considered as a gap.}
+  \item{unit }{Unit of dtMax. only used when ts is of class \code{\link{POSIXt}}}
 }
 \value{
   Data frame with the initial time, end time and time difference (unit = unit) of each interval > dtMax
